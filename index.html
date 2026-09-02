@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Espetinho da D'Jé — Comanda</title>
+<style>
+  :root{
+    --cream:#F5F1E6;
+    --cream-2:#EDE7D6;
+    --ink:#1C2118;
+    --green:#1B4A2F;
+    --green-2:#2F6B47;
+    --cozinha:#2F6B47;
+    --cozinha-d:#1B4A2F;
+    --bar:#1F5C7A;
+    --bar-d:#123B4F;
+    --churrasco:#B85C24;
+    --churrasco-d:#7E3C14;
+    --caixa:#6B4226;
+    --caixa-d:#472B18;
+    --ok:#2F6B47;
+    --line:#D9D0B8;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{margin:0;padding:0;height:100%;background:var(--cream);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;}
+  #app{min-height:100vh;display:flex;flex-direction:column;}
+  h1,h2,h3{margin:0; font-family:'Arial Black',Impact,-apple-system,sans-serif; letter-spacing:0.5px;}
+  button{font-family:inherit; cursor:pointer; border:none;}
+  .topbar{background:var(--green); color:var(--cream); padding:16px 18px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,0.15); position:sticky; top:0; z-index:20;}
+  .topbar .brand{display:flex; flex-direction:column; line-height:1.05;}
+  .topbar .brand .lil{font-size:0.62rem; letter-spacing:2px; opacity:0.75; font-weight:600; text-transform:uppercase;}
+  .topbar .brand .big{font-size:1.35rem; text-transform:uppercase;}
+  .topbar .exit{background:rgba(255,255,255,0.12); color:var(--cream); padding:10px 16px; border-radius:10px; font-size:0.95rem; font-weight:600;}
+  .topbar .exit:active{background:rgba(255,255,255,0.25);}
+
+  /* HOME */
+  .home{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 20px; gap:28px;}
+  .home .logo{text-align:center;}
+  .home .logo .big{font-size:2.4rem; color:var(--green); text-transform:uppercase; line-height:1;}
+  .home .logo .script{font-family:Georgia,'Times New Roman',serif; font-style:italic; font-size:1.5rem; color:var(--churrasco); margin-top:2px;}
+  .role-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%; max-width:520px;}
+  .role-btn{padding:26px 12px; border-radius:18px; color:#fff; display:flex; flex-direction:column; align-items:center; gap:8px; font-weight:700; font-size:1.15rem; box-shadow:0 4px 0 rgba(0,0,0,0.18);}
+  .role-btn:active{transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,0.18);}
+  .role-btn .ic{font-size:2.1rem;}
+  .role-btn.mesa{background:var(--green);}
+  .role-btn.cozinha{background:var(--cozinha);}
+  .role-btn.bar{background:var(--bar);}
+  .role-btn.churrasco{background:var(--churrasco);}
+  .role-btn.caixa{background:var(--caixa);}
+  .role-btn.admin{background:var(--ink); grid-column:1 / span 2;}
+
+  /* MESA: table select */
+  .section-pad{padding:18px; flex:1; overflow-y:auto; padding-bottom:140px;}
+  .hint{font-size:1rem; color:#5b5b4f; margin-bottom:14px; font-weight:600;}
+  .table-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px;}
+  .table-btn{aspect-ratio:1; border-radius:16px; background:#fff; border:2px solid var(--line); font-size:1.6rem; font-weight:800; color:var(--green); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 0 var(--line); position:relative;}
+  .table-btn.occupied{background:#FBEAE0; border-color:var(--churrasco);}
+  .table-btn .occ-dot{position:absolute; top:8px; right:8px; width:12px; height:12px; border-radius:50%; background:var(--churrasco);}
+  .table-btn:active{background:var(--green); color:#fff; transform:translateY(2px); box-shadow:none;}
+
+  /* MESA: categories */
+  .cat-tabs{display:flex; gap:8px; padding:12px 14px; overflow-x:auto; background:var(--cream-2); position:sticky; top:66px; z-index:15;}
+  .cat-tab{flex:0 0 auto; padding:12px 18px; border-radius:24px; font-weight:700; font-size:1rem; color:#fff; opacity:0.55; display:flex; gap:8px; align-items:center;}
+  .cat-tab.active{opacity:1; box-shadow:0 3px 0 rgba(0,0,0,0.2);}
+  .cat-tab.espetinho{background:var(--churrasco);}
+  .cat-tab.guarnicao{background:var(--cozinha);}
+  .cat-tab.bebida{background:var(--bar);}
+
+  .item-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .item-card{background:#fff; border-radius:16px; padding:16px 10px; text-align:center; border:2px solid var(--line); position:relative; box-shadow:0 2px 0 var(--line);}
+  .item-card:active{transform:translateY(2px); box-shadow:none;}
+  .item-card .ic{font-size:2.2rem;}
+  .item-card .nm{font-weight:700; font-size:0.95rem; margin-top:6px; line-height:1.15;}
+  .item-card .pr{color:var(--churrasco-d); font-weight:800; margin-top:4px; font-size:0.95rem;}
+  .item-card .badge{position:absolute; top:6px; right:6px; background:var(--green); color:#fff; font-size:0.8rem; font-weight:800; border-radius:50%; width:24px; height:24px; display:flex; align-items:center; justify-content:center;}
+
+  .cart-bar{position:fixed; bottom:0; left:0; right:0; background:var(--ink); color:#fff; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; box-shadow:0 -4px 12px rgba(0,0,0,0.2); z-index:25;}
+  .cart-bar .info{display:flex; flex-direction:column;}
+  .cart-bar .info .qt{font-size:0.85rem; opacity:0.8;}
+  .cart-bar .info .tot{font-size:1.3rem; font-weight:800;}
+  .cart-bar .send{background:var(--ok); color:#fff; padding:14px 22px; border-radius:14px; font-weight:800; font-size:1.05rem;}
+  .cart-bar .send:active{background:#245839;}
+  .cart-bar .review{background:rgba(255,255,255,0.12); padding:10px 14px; border-radius:12px; font-size:0.9rem; font-weight:600;}
+
+  /* modal */
+  .overlay{position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:flex-end; justify-content:center; z-index:50;}
+  .sheet{background:#fff; width:100%; max-width:520px; border-radius:20px 20px 0 0; padding:22px 18px 26px; max-height:80vh; overflow-y:auto;}
+  .sheet h2{font-size:1.3rem; margin-bottom:14px; color:var(--green);}
+  .opt-btn{display:block; width:100%; text-align:left; background:var(--cream-2); border-radius:14px; padding:16px; margin-bottom:10px; font-size:1.05rem; font-weight:700; color:var(--ink); display:flex; justify-content:space-between; align-items:center;}
+  .opt-btn:active{background:var(--line);}
+  .sheet .close{margin-top:6px; width:100%; text-align:center; padding:14px; border-radius:14px; background:#eee; font-weight:700; color:#555;}
+  .cart-list{margin-top:8px;}
+  .cart-row{display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line);}
+  .cart-row .nm{font-weight:700; font-size:1rem;}
+  .cart-row .sub{color:#8a8a7a; font-size:0.82rem;}
+  .stepper{display:flex; align-items:center; gap:10px;}
+  .stepper button{width:34px; height:34px; border-radius:10px; background:var(--cream-2); font-size:1.2rem; font-weight:800; color:var(--green);}
+  .stepper button:active{background:var(--line);}
+  .stepper .n{min-width:20px; text-align:center; font-weight:800;}
+
+  /* STATION */
+  .station-list{display:flex; flex-direction:column; gap:12px;}
+  .order-card{background:#fff; border-radius:16px; border:2px solid var(--line); overflow:hidden;}
+  .order-card .head{padding:12px 16px; color:#fff; display:flex; justify-content:space-between; align-items:center; font-weight:800; font-size:1.1rem;}
+  .order-card .body{padding:10px 14px;}
+  .oi-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px dashed var(--line);}
+  .oi-row:last-child{border-bottom:none;}
+  .oi-row .nm{font-weight:700; font-size:1.02rem;}
+  .oi-row .nm.done{text-decoration:line-through; opacity:0.4;}
+  .oi-row .qty{background:var(--cream-2); border-radius:8px; padding:2px 8px; font-weight:800; margin-right:8px; font-size:0.9rem;}
+  .done-btn{padding:10px 16px; border-radius:12px; background:var(--cream-2); font-weight:800; color:var(--green); font-size:0.9rem;}
+  .done-btn.on{background:var(--ok); color:#fff;}
+  .empty-msg{text-align:center; color:#8a8a7a; padding:60px 20px; font-size:1.1rem; font-weight:600;}
+
+  /* CAIXA */
+  .bill-card{background:#fff; border-radius:16px; border:2px solid var(--line); padding:14px 16px; margin-bottom:14px;}
+  .bill-card .head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .bill-card .head .tb{font-size:1.2rem; font-weight:800; color:var(--caixa-d);}
+  .bill-line{display:flex; justify-content:space-between; font-size:0.95rem; padding:5px 0; color:#3a3a30;}
+  .bill-total{display:flex; justify-content:space-between; font-weight:800; font-size:1.15rem; margin-top:8px; padding-top:8px; border-top:2px solid var(--line);}
+  .close-bill{margin-top:12px; width:100%; padding:14px; border-radius:12px; background:var(--caixa); color:#fff; font-weight:800; font-size:1rem;}
+  .close-bill:active{background:var(--caixa-d);}
+  .grand-total{position:sticky; bottom:0; background:var(--ink); color:#fff; padding:16px; display:flex; justify-content:space-between; font-weight:800; font-size:1.15rem; border-radius:16px 16px 0 0;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const MENU = {
+  espetinho: { label:'Espetinhos', emoji:'🍢', color:'churrasco', station:'churrasco',
+    items:[
+      {id:'esp1', name:'Carne', price:10.90, emoji:'🥩'},
+      {id:'esp2', name:'Cupim', price:11.90, emoji:'🥩'},
+      {id:'esp3', name:'Medalhão de Carne', price:14.90, emoji:'🥩'},
+      {id:'esp4', name:'Frango', price:8.90, emoji:'🍗'},
+      {id:'esp5', name:'Tulipa de Frango', price:10.90, emoji:'🍗'},
+      {id:'esp6', name:'Coração de Frango', price:10.90, emoji:'❤️'},
+      {id:'esp7', name:'Suíno', price:9.90, emoji:'🐖'},
+      {id:'esp8', name:'Linguiça', price:5.00, emoji:'🌭'},
+      {id:'esp9', name:'Linguiça Apimentada', price:6.00, emoji:'🌶️'},
+      {id:'esp10', name:'Queijo com Melaço', price:10.90, emoji:'🧀'},
+    ]},
+  guarnicao: { label:'Guarnições', emoji:'🍚', color:'cozinha', station:'cozinha',
+    items:[
+      {id:'gua1', name:'Arroz Branco', emoji:'🍚', sizes:[{label:'P',price:6.90},{label:'G',price:10.90}]},
+      {id:'gua2', name:'Baião Cremoso', emoji:'🍲', sizes:[{label:'P',price:9.90},{label:'G',price:14.90}]},
+      {id:'gua3', name:'Batata Frita', emoji:'🍟', sizes:[{label:'P',price:10.90},{label:'G',price:14.90}]},
+    ]},
+  bebida: { label:'Bebidas', emoji:'🥤', color:'bar', station:'bar',
+    items:[
+      {id:'beb1', name:'Água', emoji:'💧', price:3.00},
+      {id:'beb2', name:'Suco da Fruta', emoji:'🧃', price:8.00, flavors:['Maracujá','Acerola c/ Beterraba','Goiaba','Laranja']},
+      {id:'beb3', name:'Refrigerante Lata', emoji:'🥤', price:6.00},
+      {id:'beb4', name:'Refrigerante 600ml', emoji:'🥤', price:7.00},
+      {id:'beb5', name:'Refrigerante 1L', emoji:'🥤', price:11.00},
+      {id:'beb6', name:'Cerveja Heineken', emoji:'🍺', price:9.90},
+      {id:'beb7', name:'Cerveja Budweiser', emoji:'🍺', price:8.90},
+      {id:'beb8', name:'Cerveja Stella', emoji:'🍺', price:8.90},
+    ]}
+};
+const STATION_LABEL = {cozinha:'Cozinha', bar:'Bar', churrasco:'Churrasqueira'};
+const STATION_COLOR = {cozinha:'var(--cozinha)', bar:'var(--bar)', churrasco:'var(--churrasco)'};
+
+let state = { screen:'home', role:null, table:null, cart:[], activeCat:'espetinho', orders:[], modal:null };
+let pollTimer = null;
+
+function fmt(n){ return 'R$ ' + n.toFixed(2).replace('.', ','); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+const FIREBASE_URL = 'https://nosso-churrasco-default-rtdb.firebaseio.com';
+
+let unsyncedOrders = []; // pedidos criados neste aparelho que ainda não confirmaram no servidor
+let syncFailing = false;
+
+async function loadOrders(){
+  try{
+    const res = await fetch(FIREBASE_URL + '/orders.json');
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const remote = Array.isArray(data) ? data.filter(Boolean) : (data ? Object.values(data) : []);
+    syncFailing = false;
+    const merged = [...remote];
+    unsyncedOrders.forEach(o=>{ if(!merged.find(m=>m.id===o.id)) merged.push(o); });
+    return merged;
+  }catch(e){
+    console.error('Erro ao carregar pedidos', e);
+    syncFailing = true;
+    return [...unsyncedOrders];
+  }
+}
+
+async function saveOrdersRaw(orders){
+  const res = await fetch(FIREBASE_URL + '/orders.json', {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(orders)
+  });
+  if(!res.ok){ throw new Error('HTTP ' + res.status); }
+  return true;
+}
+
+// Tenta salvar com retentativas automáticas. Retorna true/false.
+async function saveOrders(orders, attempt){
+  attempt = attempt || 1;
+  try{
+    await saveOrdersRaw(orders);
+    syncFailing = false;
+    return true;
+  }catch(e){
+    console.error('Erro ao salvar (tentativa '+attempt+')', e);
+    syncFailing = true;
+    if(attempt < 4){
+      await new Promise(r=>setTimeout(r, 700*attempt));
+      return saveOrders(orders, attempt+1);
+    }
+    return false;
+  }
+}
+
+// Insere um pedido novo garantindo que ele não se perca mesmo se a conexão falhar.
+async function persistNewOrder(order, attempt){
+  attempt = attempt || 1;
+  if(!unsyncedOrders.find(o=>o.id===order.id)) unsyncedOrders.push(order);
+  try{
+    const remote = await (async()=>{
+      const res = await fetch(FIREBASE_URL + '/orders.json');
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      return Array.isArray(data) ? data.filter(Boolean) : (data ? Object.values(data) : []);
+    })().catch(()=>[]);
+    if(!remote.find(o=>o.id===order.id)) remote.push(order);
+    await saveOrdersRaw(remote);
+    unsyncedOrders = unsyncedOrders.filter(o=>o.id!==order.id);
+    syncFailing = false;
+    if(state.role==='mesa') render();
+    return true;
+  }catch(e){
+    console.error('Falha ao sincronizar pedido (tentativa '+attempt+')', e);
+    syncFailing = true;
+    if(state.role==='mesa') render();
+    if(attempt < 8){
+      setTimeout(()=>persistNewOrder(order, attempt+1), Math.min(1500*attempt, 8000));
+    }
+    return false;
+  }
+}
+
+function goHome(){ state = { screen:'home', role:null, table:null, cart:[], activeCat:'espetinho', orders:[], modal:null, adminTab:'geral' }; stopPoll(); setUrlRole(''); render(); }
+function setUrlRole(role){
+  try{
+    const url = new URL(window.location.href);
+    if(role){ url.searchParams.set('tela', role); } else { url.searchParams.delete('tela'); }
+    window.history.replaceState({}, '', url);
+  }catch(e){ /* alguns visualizadores não permitem trocar a URL, tudo bem */ }
+}
+
+const ADMIN_PIN = '1234'; // senha do Caixa e do Painel Geral — me peça pra trocar quando quiser
+
+function selectRole(role){
+  if(role==='caixa' || role==='admin'){
+    state.modal = {type:'pin', role};
+    render();
+    return;
+  }
+  proceedToRole(role);
+}
+function proceedToRole(role){
+  state.role = role; state.modal=null;
+  setUrlRole(role);
+  if(role==='mesa'){ state.screen='table-select'; }
+  else{ state.screen='station'; }
+  startPoll();
+  render();
+}
+function submitPin(){
+  const input = document.getElementById('pinInput');
+  const val = input ? input.value : '';
+  if(val === ADMIN_PIN){
+    proceedToRole(state.modal.role);
+  } else {
+    if(input){ input.value=''; input.focus(); }
+    const err = document.getElementById('pinError');
+    if(err) err.style.display = 'block';
+  }
+}
+function selectTable(n){ state.table=n; state.screen='order'; state.cart=[]; render(); }
+function tableIsOccupied(n){ return state.orders.some(o=>o.table===n && o.status==='aberto'); }
+
+function addSimple(item, station){
+  const existing = state.cart.find(c=>c.itemId===item.id && !c.variant);
+  if(existing){ existing.qty++; }
+  else{ state.cart.push({cartId:uid(), itemId:item.id, name:item.name, price:item.price, qty:1, station}); }
+  render();
+}
+function openSizeModal(item, station){ state.modal = {type:'size', item, station}; render(); }
+function openFlavorModal(item, station){ state.modal = {type:'flavor', item, station}; render(); }
+function pickSize(item, station, size){
+  const label = item.name + ' (' + size.label + ')';
+  const existing = state.cart.find(c=>c.itemId===item.id && c.variant===size.label);
+  if(existing){ existing.qty++; }
+  else{ state.cart.push({cartId:uid(), itemId:item.id, name:label, price:size.price, qty:1, station, variant:size.label}); }
+  state.modal=null; render();
+}
+function pickFlavor(item, station, flavor){
+  const label = item.name + ' — ' + flavor;
+  const existing = state.cart.find(c=>c.itemId===item.id && c.variant===flavor);
+  if(existing){ existing.qty++; }
+  else{ state.cart.push({cartId:uid(), itemId:item.id, name:label, price:item.price, qty:1, station, variant:flavor}); }
+  state.modal=null; render();
+}
+function changeQty(cartId, delta){
+  const row = state.cart.find(c=>c.cartId===cartId);
+  if(!row) return;
+  row.qty += delta;
+  if(row.qty<=0){ state.cart = state.cart.filter(c=>c.cartId!==cartId); }
+  render();
+}
+function cartTotal(){ return state.cart.reduce((s,c)=>s+c.price*c.qty,0); }
+function cartCount(){ return state.cart.reduce((s,c)=>s+c.qty,0); }
+
+function openReview(){ state.modal = {type:'review'}; render(); }
+function openTableOrderView(){ state.modal = {type:'tableOrders'}; render(); }
+function closeModal(){ state.modal=null; render(); }
+
+async function sendOrder(){
+  if(state.cart.length===0) return;
+  const order = {
+    id: uid(),
+    table: state.table,
+    createdAt: Date.now(),
+    status: 'aberto',
+    items: state.cart.map(c=>({itemId:c.cartId, name:c.name, qty:c.qty, price:c.price, station:c.station, done:false}))
+  };
+  state.cart = [];
+  state.modal = {type:'sent'};
+  render();
+  setTimeout(()=>{ if(state.modal && state.modal.type==='sent'){ state.modal=null; render(); } }, 1800);
+  await persistNewOrder(order);
+}
+
+function startPoll(){
+  stopPoll();
+  refreshOrders();
+  pollTimer = setInterval(refreshOrders, 3500);
+}
+function stopPoll(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
+async function refreshOrders(){
+  const orders = await loadOrders();
+  state.orders = orders;
+  // não redesenha a tela se tiver um campo de digitação aberto (pagamento/senha), senão apaga o que a pessoa tá escrevendo
+  const typingModals = ['payment', 'pin'];
+  if(state.modal && typingModals.includes(state.modal.type)) return;
+  render(true);
+}
+
+async function toggleItemDone(orderId, itemId){
+  const orders = await loadOrders();
+  const order = orders.find(o=>o.id===orderId);
+  if(!order) return;
+  const item = order.items.find(i=>i.itemId===itemId);
+  if(!item) return;
+  item.done = !item.done;
+  state.orders = orders;
+  render();
+  const ok = await saveOrders(orders);
+  if(!ok){ item.done = !item.done; state.orders = orders; state.modal = {type:'error', msg:'Não deu pra salvar essa atualização. Confira a internet e tente de novo.'}; render(); }
+}
+
+async function closeBill(table, payment){
+  const orders = await loadOrders();
+  const affected = orders.filter(o=>o.table===table && o.status==='aberto');
+  const now = Date.now();
+  affected.forEach(o=>{ o.status='fechado'; o.closedAt = now; o.payment = payment; });
+  state.orders = orders;
+  render();
+  const ok = await saveOrders(orders);
+  if(!ok){ affected.forEach(o=>{ o.status='aberto'; delete o.closedAt; delete o.payment; }); state.orders = orders; state.modal = {type:'error', msg:'Não deu pra fechar a conta agora. Confira a internet e tente de novo.'}; render(); }
+}
+
+let paymentModalTotal = 0;
+function openPaymentModal(table, total){
+  paymentModalTotal = total;
+  state.modal = {type:'payment', table, total, method:null};
+  render();
+}
+function pickPaymentMethod(method){
+  state.modal.method = method;
+  render();
+  if(method!=='dinheiro'){
+    setTimeout(()=>{ const el=document.getElementById('confirmPayBtn'); if(el) el.focus(); }, 50);
+  }
+}
+function updateTrocoDisplay(){
+  const input = document.getElementById('cashReceived');
+  const disp = document.getElementById('trocoDisplay');
+  if(!input || !disp) return;
+  const received = parseFloat((input.value||'0').replace(',','.')) || 0;
+  const troco = received - paymentModalTotal;
+  disp.textContent = troco >= 0 ? ('Troco: ' + fmt(troco)) : ('Falta: ' + fmt(Math.abs(troco)));
+  disp.style.color = troco >= 0 ? 'var(--ok)' : 'var(--churrasco-d)';
+}
+function confirmPayment(){
+  const m = state.modal;
+  if(!m || m.type!=='payment') return;
+  let payment = {method:m.method};
+  if(m.method==='dinheiro'){
+    const input = document.getElementById('cashReceived');
+    const received = parseFloat((input && input.value ? input.value : '0').replace(',','.')) || 0;
+    payment.received = received;
+    payment.troco = received - m.total;
+  }
+  closeBill(m.table, payment);
+  state.modal = null;
+  render();
+}
+
+function render(silent){
+  const app = document.getElementById('app');
+  let html = '';
+
+  if(state.screen==='home'){
+    html = `
+    <div class="home">
+      <div class="logo">
+        <div class="big">Espetinho</div>
+        <div class="script">da D'Jé</div>
+      </div>
+      <div style="text-align:center;color:#5b5b4f;font-weight:600;font-size:0.9rem;max-width:400px;">Cada pessoa toca no ícone da função dela nesse mesmo link</div>
+      <div class="role-grid">
+        <button class="role-btn mesa" onclick="selectRole('mesa')"><span class="ic">📋</span>Mesa</button>
+        <button class="role-btn cozinha" onclick="selectRole('cozinha')"><span class="ic">🍚</span>Cozinha</button>
+        <button class="role-btn bar" onclick="selectRole('bar')"><span class="ic">🥤</span>Bar</button>
+        <button class="role-btn churrasco" onclick="selectRole('churrasco')"><span class="ic">🍢</span>Churrasqueira</button>
+        <button class="role-btn caixa" onclick="selectRole('caixa')"><span class="ic">💰</span>Caixa</button>
+        <button class="role-btn admin" onclick="selectRole('admin')"><span class="ic">👁️</span>Painel Geral</button>
+      </div>
+      <button style="margin-top:6px;background:none;border:none;color:#8a8a7a;font-weight:700;font-size:0.9rem;text-decoration:underline;" onclick="state.showLinks=!state.showLinks;render()">${state.showLinks ? 'Ocultar links' : 'Gerar link direto pra cada função ▾'}</button>
+      ${state.showLinks ? linkListHtml() : ''}
+      <button style="margin-top:2px;background:none;border:none;color:#8a8a7a;font-weight:700;font-size:0.85rem;text-decoration:underline;" onclick="runDiagnostic()">Testar conexão com o servidor</button>
+      <div id="diag-result" style="width:100%;max-width:480px;"></div>
+    </div>`;
+    app.innerHTML = html;
+    renderModal();
+    return;
+  }
+
+  if(state.screen==='table-select'){
+    let tables='';
+    for(let i=1;i<=24;i++){
+      const occ = tableIsOccupied(i);
+      tables += `<button class="table-btn ${occ?'occupied':''}" onclick="selectTable(${i})">${i}${occ?'<span class="occ-dot"></span>':''}</button>`;
+    }
+    html = `
+    <div class="topbar"><div class="brand"><span class="lil">Espetinho da D'Jé</span><span class="big">Mesa</span></div><button class="exit" onclick="goHome()">Sair</button></div>
+    <div class="section-pad">
+      <div class="hint">Toque no número da mesa</div>
+      <div style="display:flex;gap:16px;margin-bottom:14px;font-size:0.85rem;font-weight:700;color:#5b5b4f;">
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid var(--line);vertical-align:middle;margin-right:5px;"></span>Livre</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--churrasco);vertical-align:middle;margin-right:5px;"></span>Ocupada / não paga</span>
+      </div>
+      <div class="table-grid">${tables}</div>
+    </div>`;
+    app.innerHTML = html;
+    return;
+  }
+
+  if(state.screen==='order'){
+    const cat = MENU[state.activeCat];
+    let tabs = Object.keys(MENU).map(k=>{
+      const c = MENU[k];
+      return `<button class="cat-tab ${c.color} ${state.activeCat===k?'active':''}" onclick="state.activeCat='${k}';render()">${c.emoji} ${c.label}</button>`;
+    }).join('');
+    let cards = cat.items.map(it=>{
+      const inCartQty = state.cart.filter(c=>c.itemId===it.id).reduce((s,c)=>s+c.qty,0);
+      const badge = inCartQty>0 ? `<div class="badge">${inCartQty}</div>` : '';
+      let priceLabel, action;
+      if(it.sizes){
+        priceLabel = fmt(it.sizes[0].price)+' / '+fmt(it.sizes[1].price);
+        action = `openSizeModal(${JSON.stringify(it).replace(/"/g,'&quot;')}, '${cat.station}')`;
+      } else if(it.flavors){
+        priceLabel = fmt(it.price);
+        action = `openFlavorModal(${JSON.stringify(it).replace(/"/g,'&quot;')}, '${cat.station}')`;
+      } else {
+        priceLabel = fmt(it.price);
+        action = `addSimple(${JSON.stringify(it).replace(/"/g,'&quot;')}, '${cat.station}')`;
+      }
+      return `<button class="item-card" onclick="${action}">${badge}<div class="ic">${it.emoji}</div><div class="nm">${it.name}</div><div class="pr">${priceLabel}</div></button>`;
+    }).join('');
+
+    const syncBanner = (syncFailing || unsyncedOrders.length>0)
+      ? `<div style="background:#B8391F;color:#fff;padding:10px 16px;font-weight:700;font-size:0.9rem;text-align:center;">⚠️ Sem conexão com o servidor — tentando enviar de novo automaticamente...</div>`
+      : '';
+    const sentCount = state.orders.filter(o=>o.table===state.table && o.status==='aberto').reduce((s,o)=>s+o.items.reduce((s2,i)=>s2+i.qty,0),0);
+    html = `
+    <div class="topbar"><div class="brand"><span class="lil">Mesa ${state.table}</span><span class="big">Cardápio</span></div><button class="exit" onclick="state.screen='table-select';render()">Trocar mesa</button></div>
+    ${syncBanner}
+    ${sentCount>0 ? `<button style="width:100%;background:var(--cream-2);border:none;padding:12px;font-weight:700;color:var(--green);font-size:0.9rem;" onclick="openTableOrderView()">📋 Ver pedido já enviado (${sentCount} ${sentCount===1?'item':'itens'})</button>` : ''}
+    <div class="cat-tabs">${tabs}</div>
+    <div class="section-pad">
+      <div class="item-grid">${cards}</div>
+    </div>`;
+    if(cartCount()>0){
+      html += `<div class="cart-bar">
+        <button class="review" onclick="openReview()">Ver pedido</button>
+        <div class="info"><span class="qt">${cartCount()} ${cartCount()===1?'item':'itens'}</span><span class="tot">${fmt(cartTotal())}</span></div>
+        <button class="send" onclick="sendOrder()">Enviar ▶</button>
+      </div>`;
+    }
+    app.innerHTML = html;
+    renderModal();
+    return;
+  }
+
+  if(state.screen==='station'){
+    const station = state.role;
+    const color = STATION_COLOR[station];
+    const label = STATION_LABEL[station];
+    const cardsHtml = stationCardsHtml(station);
+    html = `
+    <div class="topbar" style="background:${color}"><div class="brand"><span class="lil">Espetinho da D'Jé</span><span class="big">${label}</span></div><button class="exit" onclick="goHome()">Sair</button></div>
+    <div class="section-pad">
+      <div class="station-list">${cardsHtml}</div>
+    </div>`;
+    app.innerHTML = html;
+    return;
+  }
+
+  if(state.screen==='caixa'){}
+}
+
+// Gera os cartões de pedido de UMA estação (cozinha/bar/churrasco). Usado na tela normal da estação e nas abas do Painel Geral.
+function stationCardsHtml(station){
+  const color = STATION_COLOR[station];
+  const openOrders = state.orders.filter(o=>o.status==='aberto');
+  let cards = openOrders.map(o=>{
+    const myItems = o.items.filter(i=>i.station===station);
+    if(myItems.length===0) return '';
+    const allDone = myItems.every(i=>i.done);
+    const rows = myItems.map(i=>`
+      <div class="oi-row">
+        <div><span class="qty">${i.qty}x</span><span class="nm ${i.done?'done':''}">${i.name}</span></div>
+        <button class="done-btn ${i.done?'on':''}" onclick="toggleItemDone('${o.id}','${i.itemId}')">${i.done?'✓ Pronto':'Marcar pronto'}</button>
+      </div>`).join('');
+    return `<div class="order-card" style="opacity:${allDone?'0.5':'1'}">
+      <div class="head" style="background:${color}">Mesa ${o.table}</div>
+      <div class="body">${rows}</div>
+    </div>`;
+  }).join('');
+  return cards || '<div class="empty-msg">Nenhum pedido no momento 🍃</div>';
+}
+
+function renderModal(){
+  const el = document.createElement('div');
+  if(!state.modal){ return; }
+  const app = document.getElementById('app');
+  if(state.modal.type==='size'){
+    const it = state.modal.item, station = state.modal.station;
+    const opts = it.sizes.map(s=>`<button class="opt-btn" onclick='pickSize(${JSON.stringify(it)}, "${station}", ${JSON.stringify(s)})'>${it.emoji} ${it.name} — ${s.label}<span>${fmt(s.price)}</span></button>`).join('');
+    app.innerHTML += `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet"><h2>${it.name}</h2>${opts}<button class="close" onclick="closeModal()">Cancelar</button></div></div>`;
+  }
+  if(state.modal.type==='flavor'){
+    const it = state.modal.item, station = state.modal.station;
+    const opts = it.flavors.map(f=>`<button class="opt-btn" onclick='pickFlavor(${JSON.stringify(it)}, "${station}", ${JSON.stringify(f)})'>${it.emoji} ${f}<span>${fmt(it.price)}</span></button>`).join('');
+    app.innerHTML += `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet"><h2>${it.name} — sabor</h2>${opts}<button class="close" onclick="closeModal()">Cancelar</button></div></div>`;
+  }
+  if(state.modal.type==='tableOrders'){
+    const sent = state.orders.filter(o=>o.table===state.table && o.status==='aberto');
+    let total = 0;
+    let rows = '';
+    sent.forEach(o=>{
+      o.items.forEach(i=>{
+        total += i.price*i.qty;
+        rows += `<div class="oi-row">
+          <div><span class="qty" style="background:${STATION_COLOR[i.station]};color:#fff;">${i.qty}x</span><span class="nm ${i.done?'done':''}">${i.name}</span></div>
+          <span style="font-size:0.85rem;font-weight:700;color:${i.done?'var(--ok)':'#8a8a7a'};">${i.done?'✓ Pronto':'Preparando'}</span>
+        </div>`;
+      });
+    });
+    if(!rows) rows = '<div class="empty-msg">Nada enviado ainda</div>';
+    app.innerHTML += `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet">
+      <h2>Pedido enviado — Mesa ${state.table}</h2>
+      <div style="margin-bottom:10px;">${rows}</div>
+      <div class="bill-total"><span>Total até agora</span><span>${fmt(total)}</span></div>
+      <button class="close" onclick="closeModal()" style="margin-top:14px;">Fechar</button>
+    </div></div>`;
+  }
+  if(state.modal.type==='review'){
+    const rows = state.cart.map(c=>`
+      <div class="cart-row">
+        <div><div class="nm">${c.name}</div><div class="sub">${fmt(c.price)} un.</div></div>
+        <div class="stepper">
+          <button onclick="changeQty('${c.cartId}',-1)">−</button>
+          <span class="n">${c.qty}</span>
+          <button onclick="changeQty('${c.cartId}',1)">+</button>
+        </div>
+      </div>`).join('');
+    app.innerHTML += `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet"><h2>Pedido — Mesa ${state.table}</h2><div class="cart-list">${rows || '<div class="empty-msg">Carrinho vazio</div>'}</div><button class="close" onclick="closeModal()">Voltar ao cardápio</button></div></div>`;
+  }
+  if(state.modal.type==='sent'){
+    app.innerHTML += `<div class="overlay"><div class="sheet" style="text-align:center;"><div style="font-size:3rem;">✅</div><h2 style="margin-top:8px;">Pedido enviado!</h2></div></div>`;
+  }
+  if(state.modal.type==='error'){
+    app.innerHTML += `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet" style="text-align:center;"><div style="font-size:2.6rem;">⚠️</div><h2 style="margin-top:8px;">Ops</h2><p style="margin:10px 0 4px;color:#555;">${state.modal.msg}</p><button class="close" onclick="closeModal()">Entendi</button></div></div>`;
+  }
+  if(state.modal.type==='pin'){
+    const roleLabel = state.modal.role==='caixa' ? 'Caixa' : 'Painel Geral';
+    app.innerHTML += `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet" style="text-align:center;">
+      <h2>${roleLabel} — senha</h2>
+      <div style="color:#5b5b4f;font-weight:600;margin-bottom:14px;">Digite a senha de 4 dígitos</div>
+      <input id="pinInput" type="password" inputmode="numeric" maxlength="4" autofocus
+        style="width:100%;font-size:1.6rem;letter-spacing:10px;text-align:center;padding:16px;border-radius:12px;border:2px solid var(--line);margin-bottom:6px;"
+        oninput="if(this.value.length===4) submitPin()">
+      <div id="pinError" style="display:none;color:var(--churrasco-d);font-weight:700;margin-bottom:10px;">Senha errada, tenta de novo</div>
+      <button class="close" onclick="closeModal()">Cancelar</button>
+    </div></div>`;
+    setTimeout(()=>{ const el=document.getElementById('pinInput'); if(el) el.focus(); }, 100);
+  }
+  if(state.modal.type==='payment'){
+    const m = state.modal;
+    let methodButtons = ['dinheiro','pix','cartao'].map(mt=>{
+      const labels = {dinheiro:'💵 Dinheiro', pix:'📱 PIX', cartao:'💳 Cartão'};
+      const active = m.method===mt;
+      return `<button class="opt-btn" style="${active?'background:var(--green);color:#fff;':''}" onclick="pickPaymentMethod('${mt}')">${labels[mt]}</button>`;
+    }).join('');
+    let extra = '';
+    if(m.method==='dinheiro'){
+      extra = `
+        <div style="margin:14px 0 6px;font-weight:700;">Valor recebido</div>
+        <input id="cashReceived" type="text" inputmode="decimal" placeholder="Ex: 50,00" autocomplete="off" oninput="updateTrocoDisplay()"
+          style="width:100%;font-size:1.3rem;padding:14px;border-radius:12px;border:2px solid var(--line);margin-bottom:8px;">
+        <div id="trocoDisplay" style="font-weight:800;font-size:1.1rem;text-align:center;margin-bottom:14px;">Troco: R$ 0,00</div>
+        <button id="confirmPayBtn" class="send" style="width:100%;background:var(--ok);padding:16px;border-radius:14px;color:#fff;font-weight:800;" onclick="confirmPayment()">Confirmar pagamento</button>`;
+    } else if(m.method==='pix' || m.method==='cartao'){
+      extra = `<button id="confirmPayBtn" class="send" style="width:100%;background:var(--ok);padding:16px;border-radius:14px;color:#fff;font-weight:800;margin-top:10px;" onclick="confirmPayment()">Confirmar pagamento</button>`;
+    }
+    app.innerHTML += `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet">
+      <h2>Mesa ${m.table} — ${fmt(m.total)}</h2>
+      <div style="font-weight:700;color:#5b5b4f;margin-bottom:10px;">Como foi pago?</div>
+      ${methodButtons}
+      ${extra}
+      <button class="close" onclick="closeModal()">Cancelar</button>
+    </div></div>`;
+  }
+}
+
+// CAIXA screen (separate render function appended below, called instead of station when role==caixa)
+// Gera os cartões de conta (usado na tela normal do Caixa e na aba Caixa do Painel Geral)
+function caixaCardsHtml(){
+  const openOrders = state.orders.filter(o=>o.status==='aberto');
+  const byTable = {};
+  openOrders.forEach(o=>{
+    if(!byTable[o.table]) byTable[o.table]=[];
+    byTable[o.table].push(o);
+  });
+  let grand = 0;
+  let cards = Object.keys(byTable).sort((a,b)=>a-b).map(table=>{
+    const os = byTable[table];
+    let lines='', total=0;
+    os.forEach(o=>o.items.forEach(i=>{
+      lines += `<div class="bill-line"><span>${i.qty}x ${i.name}</span><span>${fmt(i.price*i.qty)}</span></div>`;
+      total += i.price*i.qty;
+    }));
+    grand += total;
+    return `<div class="bill-card">
+      <div class="head"><span class="tb">Mesa ${table}</span></div>
+      ${lines}
+      <div class="bill-total"><span>Total</span><span>${fmt(total)}</span></div>
+      <button class="close-bill" onclick="openPaymentModal(${table}, ${total})">Fechar conta</button>
+    </div>`;
+  }).join('');
+  if(!cards){ cards = '<div class="empty-msg">Nenhuma conta em aberto 🍃</div>'; }
+  return {cards, grand, hasAny: Object.keys(byTable).length>0};
+}
+
+function isSameDay(ts1, ts2){
+  const d1 = new Date(ts1), d2 = new Date(ts2);
+  return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate();
+}
+
+function historyCardsHtml(){
+  const now = Date.now();
+  const closedToday = state.orders.filter(o=>o.status==='fechado' && o.closedAt && isSameDay(o.closedAt, now));
+  // agrupa por comanda: mesma mesa + mesmo instante de fechamento = uma única comanda fechada de uma vez
+  const groups = {};
+  closedToday.forEach(o=>{
+    const key = o.table + '|' + o.closedAt;
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(o);
+  });
+  let grand = 0;
+  const groupKeys = Object.keys(groups).sort((a,b)=>{
+    const ta = Number(a.split('|')[1]), tb = Number(b.split('|')[1]);
+    return tb - ta; // mais recente primeiro
+  });
+  let cards = groupKeys.map(key=>{
+    const [table, closedAt] = key.split('|');
+    const group = groups[key];
+    const hora = new Date(Number(closedAt)).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    let lines='', total=0;
+    group.forEach(o=>{
+      o.items.forEach(i=>{
+        lines += `<div class="bill-line"><span>${i.qty}x ${i.name}</span><span>${fmt(i.price*i.qty)}</span></div>`;
+        total += i.price*i.qty;
+      });
+    });
+    grand += total;
+    const payment = group[0].payment;
+    const payLabel = {dinheiro:'💵 Dinheiro', pix:'📱 PIX', cartao:'💳 Cartão'}[payment && payment.method] || '';
+    let trocoLabel = '';
+    if(payment && payment.method==='dinheiro'){
+      const t = payment.troco || 0;
+      trocoLabel = t >= 0 ? ` · troco ${fmt(t)}` : ` · faltou ${fmt(Math.abs(t))}`;
+    }
+    return `<div class="bill-card" style="opacity:0.85;">
+      <div class="head"><span class="tb">Mesa ${table} ✓</span><span style="font-size:0.8rem;font-weight:700;opacity:0.8;">${hora}</span></div>
+      ${lines}
+      <div style="font-size:0.75rem;color:#8a8a7a;text-align:right;margin-top:2px;">${payLabel}${trocoLabel}</div>
+      <div class="bill-total"><span>Total</span><span>${fmt(total)}</span></div>
+    </div>`;
+  }).join('');
+  if(!cards){ cards = '<div class="empty-msg">Nenhuma conta paga hoje ainda 🍃</div>'; }
+  return {cards, grand, hasAny: groupKeys.length>0};
+}
+
+function renderCaixaScreen(){
+  const app = document.getElementById('app');
+  if(!state.caixaView) state.caixaView = 'abertas';
+  const isHist = state.caixaView==='historico';
+  const {cards, grand, hasAny} = isHist ? historyCardsHtml() : caixaCardsHtml();
+  const totalLabel = isHist ? 'Total vendido hoje' : 'Total em aberto';
+  app.innerHTML = `
+    <div class="topbar" style="background:var(--caixa)"><div class="brand"><span class="lil">Espetinho da D'Jé</span><span class="big">Caixa</span></div><button class="exit" onclick="goHome()">Sair</button></div>
+    <div class="cat-tabs">
+      <button class="cat-tab" style="background:var(--caixa);opacity:${!isHist?1:0.5};" onclick="state.caixaView='abertas';render()">📋 Contas abertas</button>
+      <button class="cat-tab" style="background:var(--caixa);opacity:${isHist?1:0.5};" onclick="state.caixaView='historico';render()">✅ Histórico de hoje</button>
+    </div>
+    <div class="section-pad" style="padding-bottom:90px;">${cards}</div>
+    ${hasAny ? `<div class="grand-total"><span>${totalLabel}</span><span>${fmt(grand)}</span></div>` : ''}
+  `;
+  renderModal();
+}
+
+const _origRender = render;
+render = function(silent){
+  if(state.screen==='station' && state.role==='caixa'){ renderCaixaScreen(); return; }
+  if(state.screen==='station' && state.role==='admin'){ renderAdminScreen(); return; }
+  _origRender(silent);
+};
+
+function stationLabel(st){ return STATION_LABEL[st] || st; }
+
+function renderAdminScreen(){
+  const app = document.getElementById('app');
+  if(!state.adminTab) state.adminTab = 'geral';
+  const tabsDef = [
+    {id:'geral', label:'👁️ Geral', color:'var(--ink)'},
+    {id:'cozinha', label:'🍚 Cozinha', color:'var(--cozinha)'},
+    {id:'bar', label:'🥤 Bar', color:'var(--bar)'},
+    {id:'churrasco', label:'🍢 Churrasco', color:'var(--churrasco)'},
+    {id:'caixa', label:'💰 Caixa', color:'var(--caixa)'},
+  ];
+  const tabsHtml = tabsDef.map(t=>`<button class="cat-tab" style="background:${t.color};opacity:${state.adminTab===t.id?1:0.5};" onclick="state.adminTab='${t.id}';render()">${t.label}</button>`).join('');
+
+  let body = '';
+  let extraTotal = '';
+  if(state.adminTab==='geral'){
+    body = adminGeralHtml();
+    const hist = historyCardsHtml();
+    if(hist.hasAny){ extraTotal = `<div style="background:#fff;border:2px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:14px;display:flex;justify-content:space-between;align-items:center;font-weight:800;color:var(--caixa-d);"><span>✅ Vendido hoje (contas pagas)</span><span>${fmt(hist.grand)}</span></div>`; }
+  } else if(state.adminTab==='caixa'){
+    const {cards} = caixaCardsHtml();
+    body = cards;
+  } else {
+    body = stationCardsHtml(state.adminTab);
+  }
+
+  const banner = syncFailing ? `<div style="background:#B8391F;color:#fff;padding:10px 16px;font-weight:700;font-size:0.9rem;text-align:center;">⚠️ Instável — tentando reconectar...</div>` : '';
+  app.innerHTML = `
+    <div class="topbar" style="background:var(--ink)"><div class="brand"><span class="lil">Espetinho da D'Jé</span><span class="big">Painel Geral</span></div><button class="exit" onclick="goHome()">Sair</button></div>
+    ${banner}
+    <div class="cat-tabs">${tabsHtml}</div>
+    <div class="section-pad">
+      <div class="station-list">${body}</div>
+      ${extraTotal}
+    </div>`;
+  renderModal();
+}
+
+function adminGeralHtml(){
+  const openOrders = state.orders.filter(o=>o.status==='aberto');
+  const byTable = {};
+  openOrders.forEach(o=>{
+    if(!byTable[o.table]) byTable[o.table]=[];
+    byTable[o.table].push(o);
+  });
+  const tableNums = Object.keys(byTable).sort((a,b)=>a-b);
+  let cards = tableNums.map(table=>{
+    const os = byTable[table];
+    let rows = '';
+    let allDoneCount = 0, totalCount = 0, tableTotal = 0;
+    os.forEach(o=>o.items.forEach(i=>{
+      totalCount++;
+      if(i.done) allDoneCount++;
+      tableTotal += i.price*i.qty;
+      rows += `<div class="oi-row">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="qty" style="background:${STATION_COLOR[i.station]};color:#fff;">${i.qty}x</span>
+          <div>
+            <div class="nm ${i.done?'done':''}">${i.name}</div>
+            <div style="font-size:0.75rem;color:#8a8a7a;font-weight:700;">${stationLabel(i.station)}</div>
+          </div>
+        </div>
+        <button class="done-btn ${i.done?'on':''}" onclick="toggleItemDone('${o.id}','${i.itemId}')">${i.done?'✓':'—'}</button>
+      </div>`;
+    }));
+    return `<div class="order-card">
+      <div class="head" style="background:var(--ink);">
+        <span>Mesa ${table}</span>
+        <span style="font-size:0.85rem;font-weight:700;opacity:0.85;">${allDoneCount}/${totalCount} prontos · ${fmt(tableTotal)}</span>
+      </div>
+      <div class="body">${rows}</div>
+    </div>`;
+  }).join('');
+  return cards || '<div class="empty-msg">Nenhum pedido em aberto 🍃</div>';
+}
+
+function linkListHtml(){
+  const roles = [
+    {id:'mesa', label:'📋 Mesa (garçom)'},
+    {id:'cozinha', label:'🍚 Cozinha'},
+    {id:'bar', label:'🥤 Bar'},
+    {id:'churrasco', label:'🍢 Churrasqueira'},
+    {id:'caixa', label:'💰 Caixa'},
+  ];
+  let base;
+  try{ base = window.location.href.split('?')[0]; }catch(e){ base = ''; }
+  const isRealWebLink = base.startsWith('http://') || base.startsWith('https://');
+  if(!isRealWebLink){
+    return `<div style="width:100%;max-width:520px;margin-top:8px;background:#FBEAE0;border:2px solid var(--churrasco);border-radius:14px;padding:16px;text-align:center;">
+      <div style="font-weight:800;color:var(--churrasco-d);margin-bottom:6px;">⚠️ Esse arquivo tá aberto localmente, não tem link de verdade ainda</div>
+      <div style="font-size:0.88rem;color:#5b4636;">Esses links só funcionam se o arquivo estiver hospedado num site (endereço começando com http). Por enquanto, manda o <b>arquivo pedido-dje.html</b> direto por WhatsApp pra cada pessoa — ela abre e toca no ícone da função dela.</div>
+    </div>`;
+  }
+  const rows = roles.map(r=>{
+    const link = base + '?tela=' + r.id;
+    const inputId = 'link-' + r.id;
+    return `<div style="background:#fff;border:2px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+      <div style="font-weight:700;font-size:0.95rem;margin-bottom:8px;">${r.label}</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="${inputId}" value="${link}" readonly onclick="this.select()"
+          style="flex:1;min-width:0;font-size:0.82rem;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--cream-2);color:var(--ink);">
+        <button style="background:var(--green);color:#fff;padding:10px 14px;border-radius:10px;font-weight:700;font-size:0.85rem;white-space:nowrap;" onclick="copyLink('${inputId}', this)">Copiar</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div style="width:100%;max-width:520px;margin-top:8px;">
+    <div style="font-size:0.85rem;color:#8a8a7a;font-weight:600;margin-bottom:10px;text-align:center;">Toque em "Copiar" — se não funcionar, toque no campo do link, ele fica selecionado, e copie pelo seu teclado</div>
+    ${rows}
+  </div>`;
+}
+
+async function runDiagnostic(){
+  const box = document.getElementById('diag-result');
+  if(!box) return;
+  box.innerHTML = `<div style="text-align:center;color:#8a8a7a;font-weight:600;margin-top:10px;">Testando...</div>`;
+  const log = [];
+  const testKey = 'diag-' + Date.now();
+  try{
+    try{
+      const setRes = await fetch(FIREBASE_URL + '/' + testKey + '.json', {
+        method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify('ok')
+      });
+      if(setRes.ok){ log.push('✅ Consegui GRAVAR no Firebase.'); }
+      else{ log.push('❌ Gravação falhou (HTTP ' + setRes.status + ').'); }
+    }catch(e){
+      log.push('❌ Erro ao GRAVAR: ' + (e && e.message ? e.message : e));
+    }
+    try{
+      const getRes = await fetch(FIREBASE_URL + '/' + testKey + '.json');
+      const val = await getRes.json();
+      if(getRes.ok && val==='ok'){ log.push('✅ Consegui LER o dado de volta.'); }
+      else{ log.push('⚠️ Leitura não retornou o valor esperado.'); }
+    }catch(e){
+      log.push('❌ Erro ao LER: ' + (e && e.message ? e.message : e));
+    }
+    fetch(FIREBASE_URL + '/' + testKey + '.json', {method:'DELETE'}).catch(()=>{});
+  }catch(e){
+    log.push('❌ Erro geral: ' + (e && e.message ? e.message : e));
+  }
+  box.innerHTML = `<div style="background:#fff;border:2px solid var(--line);border-radius:12px;padding:14px;margin-top:10px;text-align:left;font-size:0.88rem;line-height:1.6;">${log.join('<br>')}</div>`;
+}
+
+function copyLink(inputId, btn){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  input.focus();
+  input.select();
+  input.setSelectionRange(0, input.value.length);
+  const flashSuccess = ()=>{ const old = btn.textContent; btn.textContent='Copiado ✓'; setTimeout(()=>{btn.textContent=old;}, 1500); };
+  const flashManual = ()=>{ const old = btn.textContent; btn.textContent='Selecionado ✓'; setTimeout(()=>{btn.textContent=old;}, 1800); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(input.value).then(flashSuccess).catch(()=>{
+      try{ document.execCommand('copy'); flashSuccess(); }catch(e){ flashManual(); }
+    });
+  } else {
+    try{ document.execCommand('copy'); flashSuccess(); }catch(e){ flashManual(); }
+  }
+}
+
+// Se o link foi aberto com ?tela=cozinha (ou bar/churrasco/caixa/admin/mesa), já entra direto naquela tela
+(function autoOpenFromLink(){
+  try{
+    const params = new URLSearchParams(window.location.search);
+    const tela = params.get('tela');
+    const validRoles = ['mesa','cozinha','bar','churrasco','caixa','admin'];
+    if(tela && validRoles.includes(tela)){
+      selectRole(tela);
+      return;
+    }
+  }catch(e){}
+  render();
+})();
+</script>
+</body>
+</html>
