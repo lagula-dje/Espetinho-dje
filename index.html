@@ -136,6 +136,14 @@
   .close-bill{margin-top:12px; width:100%; padding:14px; border-radius:14px; background:linear-gradient(155deg,#82552f,var(--caixa)); color:#fff; font-weight:800; font-size:1rem; box-shadow:0 6px 16px -4px rgba(107,66,38,0.5);}
   .close-bill:active{transform:scale(0.96);}
   .grand-total{position:sticky; bottom:0; background:linear-gradient(155deg,#332c22,var(--ink)); color:#fff; padding:16px; display:flex; justify-content:space-between; font-weight:800; font-size:1.15rem; border-radius:20px 20px 0 0; box-shadow:0 -6px 20px rgba(0,0,0,0.2);}
+
+  /* HISTORICO */
+  .day-head{display:flex; justify-content:space-between; align-items:baseline; margin:18px 0 10px; padding-bottom:8px; border-bottom:2px solid var(--line);}
+  .day-head .dl{font-family:'Fraunces',Georgia,serif; font-weight:800; font-size:1.15rem; color:var(--ink); text-transform:capitalize;}
+  .day-head .dt{font-weight:800; font-size:1rem; color:var(--caixa-d);}
+  .pedido-block{border-left:3px solid var(--line); padding-left:10px; margin-bottom:12px;}
+  .pedido-block .pl{font-size:0.78rem; font-weight:800; color:#8a8a7a; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;}
+  .reprint-btn{background:var(--cream-2); color:var(--green); border-radius:10px; padding:8px 12px; font-size:0.82rem; font-weight:700;}
 </style>
 </head>
 <body>
@@ -176,6 +184,7 @@ const MENU = {
 };
 const STATION_LABEL = {cozinha:'Cozinha', bar:'Bar', churrasco:'Churrasqueira'};
 const STATION_COLOR = {cozinha:'var(--cozinha)', bar:'var(--bar)', churrasco:'var(--churrasco)'};
+const STATION_ORDER = ['churrasco','cozinha','bar'];
 
 let state = { screen:'home', role:null, table:null, cart:[], activeCat:'espetinho', orders:[], modal:null };
 let pollTimer = null;
@@ -287,6 +296,8 @@ function proceedToRole(role){
   else{ state.screen='station'; }
   startPoll();
   render();
+  // limpeza de contas muito antigas só acontece pelo Painel Geral, uma vez por abertura
+  if(role==='admin'){ setTimeout(purgeOldClosed, 4000); }
 }
 function submitPin(){
   const input = document.getElementById('pinInput');
@@ -338,20 +349,27 @@ function openReview(){ state.modal = {type:'review'}; render(); }
 function openTableOrderView(){ state.modal = {type:'tableOrders'}; render(); }
 function closeModal(){ state.modal=null; render(); }
 
+// Envia TUDO que está no carrinho de uma vez só e imprime UMA comanda
+// contendo apenas o que foi pedido neste envio.
 async function sendOrder(){
   if(state.cart.length===0) return;
+  const seq = state.orders.filter(o=>o.table===state.table && o.status==='aberto').length + 1;
   const order = {
     id: uid(),
     table: state.table,
+    seq: seq,
     createdAt: Date.now(),
     status: 'aberto',
     items: state.cart.map(c=>({itemId:c.cartId, name:c.name, qty:c.qty, price:c.price, station:c.station, done:false}))
   };
+  const ticket = buildFullTicket(order.table, order.seq, order.items, order.createdAt);
   state.cart = [];
-  state.modal = {type:'sent'};
+  state.modal = {type:'sent', seq:seq};
   render();
   setTimeout(()=>{ if(state.modal && state.modal.type==='sent'){ state.modal=null; render(); } }, 1800);
-  await persistNewOrder(order);
+  const saving = persistNewOrder(order);
+  setTimeout(()=>printViaRawBT(ticket), 450);
+  await saving;
 }
 
 function startPoll(){
@@ -399,6 +417,19 @@ async function closeBill(table, payment){
   render();
   const ok = await saveOrders(orders);
   if(!ok){ affected.forEach(o=>{ o.status='aberto'; delete o.closedAt; delete o.payment; }); state.orders = orders; state.modal = {type:'error', msg:'Não deu pra fechar a conta agora. Confira a internet e tente de novo.'}; render(); }
+}
+
+// Remove do servidor as contas fechadas há mais de 30 dias, pra base não crescer sem fim.
+async function purgeOldClosed(){
+  try{
+    const cut = Date.now() - 30*24*60*60*1000;
+    const orders = await loadOrders();
+    const keep = orders.filter(o=>!(o.status==='fechado' && o.closedAt && o.closedAt < cut));
+    if(keep.length !== orders.length){
+      const ok = await saveOrders(keep);
+      if(ok){ state.orders = keep; render(true); }
+    }
+  }catch(e){ console.error('Falha na limpeza automática', e); }
 }
 
 let paymentModalTotal = 0;
@@ -523,7 +554,7 @@ function render(silent){
     html = `
     <div class="topbar"><div class="brand"><span class="lil">Mesa ${state.table}</span><span class="big">Cardápio</span></div><button class="exit" onclick="state.screen='table-select';render()">Trocar mesa</button></div>
     ${syncBanner}
-    ${sentCount>0 ? `<button style="width:100%;background:var(--cream-2);border:none;padding:12px;font-weight:700;color:var(--green);font-size:0.9rem;" onclick="openTableOrderView()">📋 Ver pedido já enviado (${sentCount} ${sentCount===1?'item':'itens'})</button>` : ''}
+    ${sentCount>0 ? `<button style="width:100%;background:var(--cream-2);border:none;padding:12px;font-weight:700;color:var(--green);font-size:0.9rem;" onclick="openTableOrderView()">📋 Ver conta da mesa (${sentCount} ${sentCount===1?'item':'itens'})</button>` : ''}
     <div class="cat-tabs">${tabs}</div>
     <div class="section-pad">
       <div class="item-grid">${cards}</div>
@@ -570,10 +601,10 @@ function stationCardsHtml(station){
         <div><span class="qty">${i.qty}x</span><span class="nm ${i.done?'done':''}">${i.name}</span></div>
         <button class="done-btn ${i.done?'on':''}" onclick="toggleItemDone('${o.id}','${i.itemId}')">${i.done?'✓ Pronto':'Marcar pronto'}</button>
       </div>`).join('');
-    const ticket = buildStationTicket(o.table, STATION_LABEL[station] || station, myItems);
+    const ticket = buildStationTicket(o.table, STATION_LABEL[station] || station, myItems, o.seq);
     return `<div class="order-card" style="opacity:${allDone?'0.5':'1'}">
       <div class="head" style="background:${color}">
-        <span>Mesa ${o.table}</span>
+        <span>Mesa ${o.table}${o.seq?' · Pedido '+o.seq:''}</span>
         <button style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:0.85rem;font-weight:700;" onclick='printViaRawBT(${JSON.stringify(ticket)})'>🖨️</button>
       </div>
       <div class="body">${rows}</div>
@@ -604,13 +635,37 @@ function printViaRawBT(text){
 
 function line(ch, n){ return (ch||'-').repeat(n||32); }
 
-function buildStationTicket(table, stationLabel, items){
+// COMANDA ÚNICA: tudo que foi pedido neste envio, separado por seção dentro do mesmo papel.
+function buildFullTicket(table, seq, items, ts){
+  const now = ts ? new Date(ts) : new Date();
+  const hora = now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  let t = '';
+  t += line('=',24) + '\n';
+  t += '  ESPETINHO DA D\'JE\n';
+  t += line('=',24) + '\n';
+  t += '   MESA ' + table + '\n';
+  t += '   PEDIDO ' + (seq || 1) + '\n';
+  t += '   ' + hora + '\n';
+  t += line('=',24) + '\n';
+  STATION_ORDER.forEach(st=>{
+    const its = items.filter(i=>i.station===st);
+    if(its.length===0) return;
+    t += '\n' + (STATION_LABEL[st] || st).toUpperCase() + '\n';
+    t += line('-',24) + '\n';
+    its.forEach(i=>{ t += i.qty + 'x ' + i.name + '\n'; });
+  });
+  t += '\n' + line('=',24) + '\n\n\n';
+  return t;
+}
+
+function buildStationTicket(table, stationLabelTxt, items, seq){
   const now = new Date();
   const hora = now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   let t = '';
   t += line('=',24) + '\n';
-  t += '   ' + stationLabel.toUpperCase() + '\n';
+  t += '   ' + stationLabelTxt.toUpperCase() + '\n';
   t += '   MESA ' + table + '\n';
+  if(seq){ t += '   PEDIDO ' + seq + '\n'; }
   t += line('=',24) + '\n';
   items.forEach(i=>{ t += i.qty + 'x ' + i.name + '\n'; });
   t += '\n' + line('-',24) + '\n';
@@ -649,7 +704,6 @@ function buildPaymentReceipt(table, items, total, payment){
 }
 
 function renderModal(){
-  const el = document.createElement('div');
   if(!state.modal){ return; }
   const app = document.getElementById('app');
   if(state.modal.type==='size'){
@@ -663,10 +717,14 @@ function renderModal(){
     app.innerHTML += `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet"><h2>${it.name} — sabor</h2>${opts}<button class="close" onclick="closeModal()">Cancelar</button></div></div>`;
   }
   if(state.modal.type==='tableOrders'){
-    const sent = state.orders.filter(o=>o.table===state.table && o.status==='aberto');
+    const sent = state.orders.filter(o=>o.table===state.table && o.status==='aberto')
+                             .sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
     let total = 0;
-    let rows = '';
-    sent.forEach(o=>{
+    let blocks = '';
+    sent.forEach((o, idx)=>{
+      const seq = o.seq || (idx+1);
+      const hora = o.createdAt ? new Date(o.createdAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
+      let rows = '';
       o.items.forEach(i=>{
         total += i.price*i.qty;
         rows += `<div class="oi-row">
@@ -674,11 +732,17 @@ function renderModal(){
           <span style="font-size:0.85rem;font-weight:700;color:${i.done?'var(--ok)':'#8a8a7a'};">${i.done?'✓ Pronto':'Preparando'}</span>
         </div>`;
       });
+      const ticket = buildFullTicket(o.table, seq, o.items, o.createdAt);
+      blocks += `<div class="pedido-block">
+        <div class="pl">Pedido ${seq}${hora?' · '+hora:''}</div>
+        ${rows}
+        <button class="reprint-btn" style="margin-top:6px;" onclick='printViaRawBT(${JSON.stringify(ticket)})'>🖨️ Reimprimir este pedido</button>
+      </div>`;
     });
-    if(!rows) rows = '<div class="empty-msg">Nada enviado ainda</div>';
+    if(!blocks) blocks = '<div class="empty-msg">Nada enviado ainda</div>';
     app.innerHTML += `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet">
-      <h2>Pedido enviado — Mesa ${state.table}</h2>
-      <div style="margin-bottom:10px;">${rows}</div>
+      <h2>Conta da Mesa ${state.table}</h2>
+      <div style="margin-bottom:10px;">${blocks}</div>
       <div class="bill-total"><span>Total até agora</span><span>${fmt(total)}</span></div>
       <button class="close" onclick="closeModal()" style="margin-top:14px;">Fechar</button>
     </div></div>`;
@@ -696,7 +760,7 @@ function renderModal(){
     app.innerHTML += `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet"><h2>Pedido — Mesa ${state.table}</h2><div class="cart-list">${rows || '<div class="empty-msg">Carrinho vazio</div>'}</div><button class="close" onclick="closeModal()">Voltar ao cardápio</button></div></div>`;
   }
   if(state.modal.type==='sent'){
-    app.innerHTML += `<div class="overlay"><div class="sheet" style="text-align:center;"><div style="font-size:3rem;">✅</div><h2 style="margin-top:8px;">Pedido enviado!</h2></div></div>`;
+    app.innerHTML += `<div class="overlay"><div class="sheet" style="text-align:center;"><div style="font-size:3rem;">✅</div><h2 style="margin-top:8px;">Pedido ${state.modal.seq||''} enviado!</h2><div style="color:#5b5b4f;font-weight:600;margin-top:6px;">Imprimindo a comanda...</div></div></div>`;
   }
   if(state.modal.type==='error'){
     app.innerHTML += `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet" style="text-align:center;"><div style="font-size:2.6rem;">⚠️</div><h2 style="margin-top:8px;">Ops</h2><p style="margin:10px 0 4px;color:#555;">${state.modal.msg}</p><button class="close" onclick="closeModal()">Entendi</button></div></div>`;
@@ -742,8 +806,7 @@ function renderModal(){
   }
 }
 
-// CAIXA screen (separate render function appended below, called instead of station when role==caixa)
-// Gera os cartões de conta (usado na tela normal do Caixa e na aba Caixa do Painel Geral)
+// Gera os cartões de conta em aberto (usado na tela normal do Caixa e na aba Caixa do Painel Geral)
 function caixaCardsHtml(){
   const openOrders = state.orders.filter(o=>o.status==='aberto');
   const byTable = {};
@@ -753,27 +816,30 @@ function caixaCardsHtml(){
   });
   let grand = 0;
   let cards = Object.keys(byTable).sort((a,b)=>a-b).map(table=>{
-    const os = byTable[table];
-    // agrupa todos os itens da mesa por estação, pra poder imprimir cada seção separada
-    const byStation = {};
+    const os = byTable[table].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+    const allItems = [];
     let lines='', total=0;
-    os.forEach(o=>o.items.forEach(i=>{
-      if(!byStation[i.station]) byStation[i.station]=[];
-      byStation[i.station].push(i);
-      lines += `<div class="bill-line"><span>${i.qty}x ${i.name}</span><span>${fmt(i.price*i.qty)}</span></div>`;
-      total += i.price*i.qty;
-    }));
+    os.forEach((o, idx)=>{
+      const seq = o.seq || (idx+1);
+      lines += `<div style="font-size:0.72rem;font-weight:800;color:#8a8a7a;text-transform:uppercase;letter-spacing:0.5px;margin-top:8px;">Pedido ${seq}</div>`;
+      o.items.forEach(i=>{
+        allItems.push(i);
+        lines += `<div class="bill-line"><span>${i.qty}x ${i.name}</span><span>${fmt(i.price*i.qty)}</span></div>`;
+        total += i.price*i.qty;
+      });
+    });
     grand += total;
-    const printRow = Object.keys(byStation).map(st=>{
-      const label = STATION_LABEL[st] || st;
-      const ticket = buildStationTicket(table, label, byStation[st]);
-      return `<button style="background:${STATION_COLOR[st]};color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:0.82rem;font-weight:700;margin-right:6px;margin-bottom:6px;" onclick='printViaRawBT(${JSON.stringify(ticket)})'>🖨️ ${label}</button>`;
+    // reimpressão: uma comanda por pedido enviado
+    const reprints = os.map((o, idx)=>{
+      const seq = o.seq || (idx+1);
+      const ticket = buildFullTicket(table, seq, o.items, o.createdAt);
+      return `<button class="reprint-btn" style="margin-right:6px;margin-bottom:6px;" onclick='printViaRawBT(${JSON.stringify(ticket)})'>🖨️ Pedido ${seq}</button>`;
     }).join('');
     return `<div class="bill-card">
-      <div class="head"><span class="tb">Mesa ${table}</span></div>
+      <div class="head"><span class="tb">Mesa ${table}</span><span style="font-size:0.8rem;font-weight:700;color:#8a8a7a;">${os.length} ${os.length===1?'pedido':'pedidos'}</span></div>
       ${lines}
       <div class="bill-total"><span>Total</span><span>${fmt(total)}</span></div>
-      <div style="margin-top:10px;display:flex;flex-wrap:wrap;">${printRow}</div>
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;">${reprints}</div>
       <button class="close-bill" onclick="openPaymentModal(${table}, ${total})">Fechar conta</button>
     </div>`;
   }).join('');
@@ -785,28 +851,50 @@ function isSameDay(ts1, ts2){
   const d1 = new Date(ts1), d2 = new Date(ts2);
   return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate();
 }
-
-function historyCardsHtml(){
+function dayKeyOf(ts){
+  const d = new Date(ts);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function dayLabelOf(ts){
   const now = Date.now();
-  const closedToday = state.orders.filter(o=>o.status==='fechado' && o.closedAt && isSameDay(o.closedAt, now));
-  // agrupa por comanda: mesma mesa + mesmo instante de fechamento = uma única comanda fechada de uma vez
+  if(isSameDay(ts, now)) return 'Hoje';
+  if(isSameDay(ts, now - 86400000)) return 'Ontem';
+  const d = new Date(ts);
+  const semana = d.toLocaleDateString('pt-BR',{weekday:'long'});
+  return semana + ', ' + d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+}
+
+// Contas já pagas. days=1 → só hoje. days=7 → últimos 7 dias, separados por dia.
+function historyCardsHtml(days){
+  days = days || 1;
+  const now = new Date();
+  const cutDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  cutDate.setDate(cutDate.getDate() - (days-1));
+  const cut = cutDate.getTime();
+
+  const closed = state.orders.filter(o=>o.status==='fechado' && o.closedAt && o.closedAt >= cut);
+  // agrupa por comanda: mesma mesa + mesmo instante de fechamento = uma conta paga
   const groups = {};
-  closedToday.forEach(o=>{
+  closed.forEach(o=>{
     const key = o.table + '|' + o.closedAt;
     if(!groups[key]) groups[key] = [];
     groups[key].push(o);
   });
+  const groupKeys = Object.keys(groups).sort((a,b)=>Number(b.split('|')[1]) - Number(a.split('|')[1]));
+
   let grand = 0;
-  const groupKeys = Object.keys(groups).sort((a,b)=>{
-    const ta = Number(a.split('|')[1]), tb = Number(b.split('|')[1]);
-    return tb - ta; // mais recente primeiro
-  });
-  let cards = groupKeys.map(key=>{
-    const [table, closedAt] = key.split('|');
-    const group = groups[key];
-    const hora = new Date(Number(closedAt)).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  const byDay = {};
+  groupKeys.forEach(key=>{
+    const table = key.split('|')[0];
+    const closedAt = Number(key.split('|')[1]);
+    const group = groups[key].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+    const hora = new Date(closedAt).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
     let lines='', total=0;
-    group.forEach(o=>{
+    group.forEach((o, idx)=>{
+      const seq = o.seq || (idx+1);
+      if(group.length>1){
+        lines += `<div style="font-size:0.72rem;font-weight:800;color:#8a8a7a;text-transform:uppercase;letter-spacing:0.5px;margin-top:6px;">Pedido ${seq}</div>`;
+      }
       o.items.forEach(i=>{
         lines += `<div class="bill-line"><span>${i.qty}x ${i.name}</span><span>${fmt(i.price*i.qty)}</span></div>`;
         total += i.price*i.qty;
@@ -820,14 +908,37 @@ function historyCardsHtml(){
       const t = payment.troco || 0;
       trocoLabel = t >= 0 ? ` · troco ${fmt(t)}` : ` · faltou ${fmt(Math.abs(t))}`;
     }
-    return `<div class="bill-card" style="opacity:0.85;">
+    const allItems = [];
+    group.forEach(o=>allItems.push(...o.items));
+    const receipt = buildPaymentReceipt(table, allItems, total, payment);
+    const card = `<div class="bill-card" style="opacity:0.9;">
       <div class="head"><span class="tb">Mesa ${table} ✓</span><span style="font-size:0.8rem;font-weight:700;opacity:0.8;">${hora}</span></div>
       ${lines}
       <div style="font-size:0.75rem;color:#8a8a7a;text-align:right;margin-top:2px;">${payLabel}${trocoLabel}</div>
       <div class="bill-total"><span>Total</span><span>${fmt(total)}</span></div>
+      <div style="margin-top:10px;"><button class="reprint-btn" onclick='printViaRawBT(${JSON.stringify(receipt)})'>🖨️ Reimprimir recibo</button></div>
     </div>`;
-  }).join('');
-  if(!cards){ cards = '<div class="empty-msg">Nenhuma conta paga hoje ainda 🍃</div>'; }
+    const dk = dayKeyOf(closedAt);
+    if(!byDay[dk]) byDay[dk] = {label: dayLabelOf(closedAt), ts: closedAt, total:0, html:''};
+    byDay[dk].total += total;
+    byDay[dk].html += card;
+  });
+
+  const dayKeys = Object.keys(byDay).sort((a,b)=>byDay[b].ts - byDay[a].ts);
+  let cards = '';
+  if(days===1){
+    cards = dayKeys.map(k=>byDay[k].html).join('');
+  } else {
+    cards = dayKeys.map(k=>{
+      const d = byDay[k];
+      return `<div class="day-head"><span class="dl">${d.label}</span><span class="dt">${fmt(d.total)}</span></div>${d.html}`;
+    }).join('');
+  }
+  if(!cards){
+    cards = days===1
+      ? '<div class="empty-msg">Nenhuma conta paga hoje ainda 🍃</div>'
+      : '<div class="empty-msg">Nenhuma conta paga nos últimos 7 dias 🍃</div>';
+  }
   return {cards, grand, hasAny: groupKeys.length>0};
 }
 
@@ -835,13 +946,13 @@ function renderCaixaScreen(){
   const app = document.getElementById('app');
   if(!state.caixaView) state.caixaView = 'abertas';
   const isHist = state.caixaView==='historico';
-  const {cards, grand, hasAny} = isHist ? historyCardsHtml() : caixaCardsHtml();
+  const {cards, grand, hasAny} = isHist ? historyCardsHtml(1) : caixaCardsHtml();
   const totalLabel = isHist ? 'Total vendido hoje' : 'Total em aberto';
   app.innerHTML = `
     <div class="topbar" style="background:var(--caixa)"><div class="brand"><span class="lil">Espetinho da D'Jé</span><span class="big">Caixa</span></div><button class="exit" onclick="goHome()">Sair</button></div>
     <div class="cat-tabs">
       <button class="cat-tab" style="background:var(--caixa);opacity:${!isHist?1:0.5};" onclick="state.caixaView='abertas';render()">📋 Contas abertas</button>
-      <button class="cat-tab" style="background:var(--caixa);opacity:${isHist?1:0.5};" onclick="state.caixaView='historico';render()">✅ Histórico de hoje</button>
+      <button class="cat-tab" style="background:var(--caixa);opacity:${isHist?1:0.5};" onclick="state.caixaView='historico';render()">✅ Pagas hoje</button>
     </div>
     <div class="section-pad" style="padding-bottom:90px;">${cards}</div>
     ${hasAny ? `<div class="grand-total"><span>${totalLabel}</span><span>${fmt(grand)}</span></div>` : ''}
@@ -867,18 +978,24 @@ function renderAdminScreen(){
     {id:'bar', label:'🥤 Bar', color:'var(--bar)'},
     {id:'churrasco', label:'🍢 Churrasco', color:'var(--churrasco)'},
     {id:'caixa', label:'💰 Caixa', color:'var(--caixa)'},
+    {id:'historico', label:'📅 Histórico 7 dias', color:'var(--green)'},
   ];
   const tabsHtml = tabsDef.map(t=>`<button class="cat-tab" style="background:${t.color};opacity:${state.adminTab===t.id?1:0.5};" onclick="state.adminTab='${t.id}';render()">${t.label}</button>`).join('');
 
   let body = '';
   let extraTotal = '';
+  let bottomTotal = '';
   if(state.adminTab==='geral'){
     body = adminGeralHtml();
-    const hist = historyCardsHtml();
+    const hist = historyCardsHtml(1);
     if(hist.hasAny){ extraTotal = `<div style="background:#fff;border:2px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:14px;display:flex;justify-content:space-between;align-items:center;font-weight:800;color:var(--caixa-d);"><span>✅ Vendido hoje (contas pagas)</span><span>${fmt(hist.grand)}</span></div>`; }
   } else if(state.adminTab==='caixa'){
     const {cards} = caixaCardsHtml();
     body = cards;
+  } else if(state.adminTab==='historico'){
+    const hist = historyCardsHtml(7);
+    body = hist.cards;
+    if(hist.hasAny){ bottomTotal = `<div class="grand-total"><span>Total dos 7 dias</span><span>${fmt(hist.grand)}</span></div>`; }
   } else {
     body = stationCardsHtml(state.adminTab);
   }
@@ -888,10 +1005,11 @@ function renderAdminScreen(){
     <div class="topbar" style="background:var(--ink)"><div class="brand"><span class="lil">Espetinho da D'Jé</span><span class="big">Painel Geral</span></div><button class="exit" onclick="goHome()">Sair</button></div>
     ${banner}
     <div class="cat-tabs">${tabsHtml}</div>
-    <div class="section-pad">
+    <div class="section-pad" style="padding-bottom:${bottomTotal?'90px':'140px'};">
       <div class="station-list">${body}</div>
       ${extraTotal}
-    </div>`;
+    </div>
+    ${bottomTotal}`;
   renderModal();
 }
 
@@ -904,24 +1022,28 @@ function adminGeralHtml(){
   });
   const tableNums = Object.keys(byTable).sort((a,b)=>a-b);
   let cards = tableNums.map(table=>{
-    const os = byTable[table];
+    const os = byTable[table].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
     let rows = '';
     let allDoneCount = 0, totalCount = 0, tableTotal = 0;
-    os.forEach(o=>o.items.forEach(i=>{
-      totalCount++;
-      if(i.done) allDoneCount++;
-      tableTotal += i.price*i.qty;
-      rows += `<div class="oi-row">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span class="qty" style="background:${STATION_COLOR[i.station]};color:#fff;">${i.qty}x</span>
-          <div>
-            <div class="nm ${i.done?'done':''}">${i.name}</div>
-            <div style="font-size:0.75rem;color:#8a8a7a;font-weight:700;">${stationLabel(i.station)}</div>
+    os.forEach((o, idx)=>{
+      const seq = o.seq || (idx+1);
+      rows += `<div style="font-size:0.72rem;font-weight:800;color:#8a8a7a;text-transform:uppercase;letter-spacing:0.5px;margin-top:8px;">Pedido ${seq}</div>`;
+      o.items.forEach(i=>{
+        totalCount++;
+        if(i.done) allDoneCount++;
+        tableTotal += i.price*i.qty;
+        rows += `<div class="oi-row">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="qty" style="background:${STATION_COLOR[i.station]};color:#fff;">${i.qty}x</span>
+            <div>
+              <div class="nm ${i.done?'done':''}">${i.name}</div>
+              <div style="font-size:0.75rem;color:#8a8a7a;font-weight:700;">${stationLabel(i.station)}</div>
+            </div>
           </div>
-        </div>
-        <button class="done-btn ${i.done?'on':''}" onclick="toggleItemDone('${o.id}','${i.itemId}')">${i.done?'✓':'—'}</button>
-      </div>`;
-    }));
+          <button class="done-btn ${i.done?'on':''}" onclick="toggleItemDone('${o.id}','${i.itemId}')">${i.done?'✓':'—'}</button>
+        </div>`;
+      });
+    });
     return `<div class="order-card">
       <div class="head" style="background:var(--ink);">
         <span>Mesa ${table}</span>
